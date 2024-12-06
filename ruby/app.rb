@@ -2,6 +2,7 @@ require 'sinatra/base'
 require 'mysql2'
 require 'mysql2-cs-bind'
 require 'erubis'
+require 'redis'
 
 module Ishocon1
   class AuthenticationError < StandardError; end
@@ -162,7 +163,18 @@ SQL
 
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
-    comments = $product_comments[product[:id]] || []
+
+    if redis.exists(key)
+      # Get it from Redis
+      comments = JSON.parse(redis.get(key), symbolize_names: true)
+    else
+      # Use the current data from comments
+      comments = $product_comments[product[:id]] || []
+
+      # Cashing in Redis
+      redis.set(key, comments.to_json)
+    end
+
     erb :product, locals: { product: product, comments: comments }
   end
 
