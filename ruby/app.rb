@@ -55,7 +55,7 @@ INNER JOIN users on comments.user_id = users.id
 SQL
       db.xquery(product_comments_query).each do |comment|
         comment = {
-          product_id: comment[:product_id].to_s,
+          product_id: comment[:product_id],
           user_name: comment[:user_name],
           content: comment[:content],
           created_at: comment[:created_at],
@@ -188,7 +188,7 @@ SQL
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user, params[:content])
+    create_comment(params[:product_id].to_i, current_user, params[:content])
     redirect "/users/#{current_user[:id]}"
   end
 
