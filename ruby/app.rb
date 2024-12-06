@@ -44,6 +44,12 @@ class Ishocon1::WebApp < Sinatra::Base
       client
     end
 
+    def redis_client
+      return Thread.current[:redis_client] if Thread.current[:redis_client]
+      Thread.current[:redis_client] = Redis.new(url: ENV['REDIS_URL'] || 'redis://localhost:6379/0')
+      Thread.current[:redis_client]
+    end
+
     def setup_cache
       $product_comments = {}
       product_comments_query = <<SQL
@@ -198,11 +204,5 @@ SQL
 
     setup_cache
     "Finish"
-  end
-
-  def redis_client
-    return Thread.current[:redis_client] if Thread.current[:redis_client]
-    Thread.current[:redis_client] = Redis.new(url: ENV['REDIS_URL'] || 'redis://localhost:6379/0')
-    Thread.current[:redis_client]
   end
 end
