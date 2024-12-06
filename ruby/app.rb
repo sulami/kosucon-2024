@@ -43,6 +43,22 @@ class Ishocon1::WebApp < Sinatra::Base
       client
     end
 
+    def setup_cache
+      $product_comments = {}
+      db.xquery('SELECT * FROM comments').each do |comment|
+        comment = {
+          user_id: comment[:user_id],
+          content: comment[:content],
+          time_now_db: comment[:time_now_db],
+        }
+        if $product_comments.has_key?(comment[:product_id])
+          $product_comments.fetch(comment[:product_id]) << comment
+        else
+          $product_comments[comment[:product_id]] = [comment]
+        end
+      end
+    end
+
     def time_now_db
       Time.now - 9 * 60 * 60
     end
@@ -80,6 +96,11 @@ class Ishocon1::WebApp < Sinatra::Base
     def create_comment(product_id, user_id, content)
       db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)', \
         product_id, user_id, content, time_now_db)
+      if $product_comments.has_key?(product_id)
+        $product_comments[product_id] << {user_id:, content:, time_now_db:}
+      else
+        $product_comments[product_id] = [{user_id:, content:, time_now_db:}]
+      end
     end
   end
 
@@ -148,7 +169,7 @@ SQL
 
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
-    comments = db.xquery('SELECT * FROM comments WHERE product_id = ?', params[:product_id])
+    comments = $product_comments[params[:product_id]]
     erb :product, locals: { product: product, comments: comments }
   end
 
@@ -170,5 +191,7 @@ SQL
     db.query('DELETE FROM comments WHERE id > 200000')
     db.query('DELETE FROM histories WHERE id > 500000')
     "Finish"
+
+    setup_cache
   end
 end
