@@ -165,6 +165,7 @@ SQL
 
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
+    key = "product:comments:#{product[:id]}"
 
     if @@redis.exists(key)
       # Get it from Redis
