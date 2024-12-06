@@ -45,12 +45,17 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def setup_cache
       $product_comments = {}
-      db.xquery('SELECT * FROM comments').each do |comment|
+      product_comments_query = <<SQL
+SELECT product_id, users.name as user_name, content, created_at
+FROM comments
+JOIN users on comments.user_id = users.id
+SQL
+      db.xquery(product_comments_query).each do |comment|
         comment = {
           product_id: comment[:product_id],
-          user_id: comment[:user_id],
+          user_name: comment[:user_name],
           content: comment[:content],
-          time_now_db: comment[:time_now_db],
+          created_at: comment[:created_at],
         }
         add_product_comment(comment)
       end
@@ -60,7 +65,7 @@ class Ishocon1::WebApp < Sinatra::Base
       if $product_comments.has_key?(comment[:product_id])
         $product_comments.fetch(comment[:product_id]) << comment
         # Re-sort after insertion
-        $product_comments[product_id].sort_by! { |c| c[:created_at] }.reverse!
+        $product_comments[comment[:product_id]].sort_by! { |c| c[:created_at] }.reverse!
       else
         $product_comments[comment[:product_id]] = [comment]
       end
@@ -100,8 +105,8 @@ class Ishocon1::WebApp < Sinatra::Base
       count > 0
     end
 
-    def create_comment(product_id, user_id, content)
-      add_product_comment({product_id:, user_id:, content:, time_now_db:})
+    def create_comment(product_id, user_name, content)
+      add_product_comment({product_id:, user_name:, content:, time_now_db:})
     end
   end
 
@@ -134,18 +139,7 @@ class Ishocon1::WebApp < Sinatra::Base
   get '/' do
     page = (params[:page] || '0').to_i
     products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
-
-    comments_by_product = {}
-    comment_counts = {}
-
-    products.each do |product|
-      pid = product[:id]
-      all_comments = $product_comments[pid] || []
-      comments_by_product[pid] = all_comments.first(5)
-      comment_counts[pid] = all_comments.size
-    end
-
-    erb :index, locals: { products: products, comments_by_product: comments_by_product, comment_counts: comment_counts }
+    erb :index, locals: { products: products, comments_by_product: $product_comments }
   end
 
   get '/users/:user_id' do
