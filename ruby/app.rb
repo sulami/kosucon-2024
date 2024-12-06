@@ -169,7 +169,7 @@ SQL
 
     if @@redis.exists(key)
       # Get it from Redis
-      comments = JSON.parse(@@redis.get(key), symbolize_names: true)
+      comments = JSON.parse(@@redis.get(key) || "[]", symbolize_names: true)
     else
       # Use the current data from comments
       comments = $product_comments[product[:id]] || []
