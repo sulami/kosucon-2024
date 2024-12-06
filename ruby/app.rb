@@ -183,13 +183,14 @@ SQL
 
     if @@redis.exists(key)
       # Get it from Redis
-      comments = JSON.parse(@@redis.get(key) || "[]", symbolize_names: true)
+      comments = @@redis.get(key)
+      comments = comments ? Marshal.load(comments) : []
     else
       # Use the current data from comments
       comments = $product_comments[product[:id]] || []
 
       # Cashing in Redis
-      @@redis.set(key, comments.to_json)
+      @@redis.set(key, Marshal.dump(comments))
     end
 
     erb :product, locals: { product: product, comments: comments }
