@@ -44,18 +44,24 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def setup_cache
-      $product_comments = {}
-      db.xquery('SELECT * FROM comments').each do |comment|
-        comment = {
-          user_id: comment[:user_id],
-          content: comment[:content],
-          time_now_db: comment[:time_now_db],
+      $product_comments = Hash.new { |h, k| h[k] = [] }
+      # Preload all comments with user data
+      db.xquery(<<~SQL).each do |row|
+        SELECT c.product_id, c.user_id, u.name as user_name, c.content, c.created_at
+        FROM comments c
+        INNER JOIN users u ON c.user_id = u.id
+      SQL
+        $product_comments[row[:product_id]] << {
+          user_id: row[:user_id],
+          user_name: row[:user_name],
+          content: row[:content],
+          created_at: row[:created_at]
         }
-        if $product_comments.has_key?(comment[:product_id])
-          $product_comments.fetch(comment[:product_id]) << comment
-        else
-          $product_comments[comment[:product_id]] = [comment]
-        end
+      end
+
+      # Sort comments in descending order by created_at for each product
+      $product_comments.each_value do |comments|
+        comments.sort_by! { |c| c[:created_at] }.reverse!
       end
     end
 
@@ -65,7 +71,7 @@ class Ishocon1::WebApp < Sinatra::Base
 
     def authenticate(email, password)
       user = db.xquery('SELECT * FROM users WHERE email = ?', email).first
-      fail Ishocon1::AuthenticationError unless user.nil? == false && user[:password] == password
+      fail Ishocon1::AuthenticationError unless user && user[:password] == password
       session[:user_id] = user[:id]
     end
 
@@ -82,25 +88,29 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def buy_product(product_id, user_id)
-      db.xquery('INSERT INTO histories (product_id, user_id, created_at) VALUES (?, ?, ?)', \
+      db.xquery('INSERT INTO histories (product_id, user_id, created_at) VALUES (?, ?, ?)',
         product_id, user_id, time_now_db)
     end
 
     def already_bought?(product_id)
       return false unless current_user
-      count = db.xquery('SELECT count(*) as count FROM histories WHERE product_id = ? AND user_id = ?', \
+      count = db.xquery('SELECT count(*) as count FROM histories WHERE product_id = ? AND user_id = ?',
                         product_id, current_user[:id]).first[:count]
       count > 0
     end
 
     def create_comment(product_id, user_id, content)
-      db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)', \
+      db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)',
         product_id, user_id, content, time_now_db)
-      if $product_comments.has_key?(product_id)
-        $product_comments[product_id] << {user_id:, content:, time_now_db:}
-      else
-        $product_comments[product_id] = [{user_id:, content:, time_now_db:}]
-      end
+      # Update our cache
+      $product_comments[product_id] << {
+        user_id: user_id,
+        user_name: current_user[:name],
+        content: content,
+        created_at: time_now_db
+      }
+      # Re-sort after insertion
+      $product_comments[product_id].sort_by! { |c| c[:created_at] }.reverse!
     end
   end
 
@@ -131,20 +141,20 @@ class Ishocon1::WebApp < Sinatra::Base
   end
 
   get '/' do
-    page = params[:page].to_i || 0
+    page = (params[:page] || '0').to_i
     products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
-    cmt_query = <<SQL
-SELECT *
-FROM comments as c
-INNER JOIN users as u
-ON c.user_id = u.id
-WHERE c.product_id = ?
-ORDER BY c.created_at DESC
-LIMIT 5
-SQL
-    cmt_count_query = 'SELECT count(*) as count FROM comments WHERE product_id = ?'
 
-    erb :index, locals: { products: products, cmt_query: cmt_query, cmt_count_query: cmt_count_query }
+    comments_by_product = {}
+    comment_counts = {}
+
+    products.each do |product|
+      pid = product[:id]
+      all_comments = $product_comments[pid] || []
+      comments_by_product[pid] = all_comments.first(5)
+      comment_counts[pid] = all_comments.size
+    end
+
+    erb :index, locals: { products: products, comments_by_product: comments_by_product, comment_counts: comment_counts }
   end
 
   get '/users/:user_id' do
@@ -158,10 +168,7 @@ ORDER BY h.id DESC
 SQL
     products = db.xquery(products_query, params[:user_id])
 
-    total_pay = 0
-    products.each do |product|
-      total_pay += product[:price]
-    end
+    total_pay = products.reduce(0) { |sum, product| sum + product[:price] }
 
     user = db.xquery('SELECT * FROM users WHERE id = ?', params[:user_id]).first
     erb :mypage, locals: { products: products, user: user, total_pay: total_pay }
@@ -169,7 +176,7 @@ SQL
 
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
-    comments = $product_comments[params[:product_id]]
+    comments = $product_comments[product[:id]] || []
     erb :product, locals: { product: product, comments: comments }
   end
 
@@ -190,8 +197,8 @@ SQL
     db.query('DELETE FROM products WHERE id > 10000')
     db.query('DELETE FROM comments WHERE id > 200000')
     db.query('DELETE FROM histories WHERE id > 500000')
-    "Finish"
 
     setup_cache
+    "Finish"
   end
 end
