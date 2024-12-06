@@ -16,6 +16,8 @@ class Ishocon1::WebApp < Sinatra::Base
   set :public_folder, File.expand_path('../public', __FILE__)
   set :protection, true
 
+  @@redis = Redis.new(url: ENV['REDIS_URL'] || 'redis://localhost:6379/0')
+
   helpers do
     def config
       @config ||= {
@@ -42,12 +44,6 @@ class Ishocon1::WebApp < Sinatra::Base
       client.query_options.merge!(symbolize_keys: true)
       Thread.current[:ishocon1_db] = client
       client
-    end
-
-    def redis_client
-      return Thread.current[:redis_client] if Thread.current[:redis_client]
-      Thread.current[:redis_client] = Redis.new(url: ENV['REDIS_URL'] || 'redis://localhost:6379/0')
-      Thread.current[:redis_client]
     end
 
     def setup_cache
@@ -170,15 +166,15 @@ SQL
   get '/products/:product_id' do
     product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
 
-    if redis.exists(key)
+    if @@redis.exists(key)
       # Get it from Redis
-      comments = JSON.parse(redis.get(key), symbolize_names: true)
+      comments = JSON.parse(@@redis.get(key), symbolize_names: true)
     else
       # Use the current data from comments
       comments = $product_comments[product[:id]] || []
 
       # Cashing in Redis
-      redis.set(key, comments.to_json)
+      @@redis.set(key, comments.to_json)
     end
 
     erb :product, locals: { product: product, comments: comments }
