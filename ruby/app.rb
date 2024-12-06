@@ -96,7 +96,11 @@ SQL
     def authenticate(email, password)
       user = db.xquery('SELECT * FROM users WHERE email = ?', email).first
       fail Ishocon1::AuthenticationError unless user && user[:password] == password
+      
       session[:user_id] = user[:id]
+      session[:user_name] = user[:name]
+    
+      @@redis.set("session:#{user[:id]}", Marshal.dump(user))
     end
 
     def authenticated!
@@ -104,7 +108,18 @@ SQL
     end
 
     def current_user
-      db.xquery('SELECT * FROM users WHERE id = ?', session[:user_id]).first
+      return @current_user if @current_user
+    
+      user_id = session['user_id']
+      return unless user_id
+      
+      user = @@redis.get("session:#{user_id}")
+      unless user
+        user = db.xquery('SELECT * FROM users WHERE id = ?', user_id).first
+        @@redis.set("session:#{user_id}", Marshal.dump(user)) if user # 캐싱
+      end
+    
+      @current_user = user ? Marshal.load(user) : nil
     end
 
     def update_last_login(user_id)
