@@ -110,7 +110,7 @@ SQL
 
     def create_comment(product_id, user_id, content)
       user = db.xquery('SELECT name from USERS where id = ?', user_id).first
-      add_product_comment({product_id:, user_name: user[:name], content:, time_now_db:})
+      add_product_comment({product_id:, user_name: user[:name], content:, created_at: time_now_db})
     end
   end
 
