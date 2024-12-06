@@ -108,8 +108,7 @@ SQL
       count > 0
     end
 
-    def create_comment(product_id, user_id, content)
-      user = db.xquery('select name from users where id = ?', user_id).first
+    def create_comment(product_id, user, content)
       add_product_comment({product_id:, user_name: user[:name], content:, created_at: time_now_db})
     end
   end
@@ -189,7 +188,7 @@ SQL
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user[:id], params[:content])
+    create_comment(params[:product_id], current_user, params[:content])
     redirect "/users/#{current_user[:id]}"
   end
 
