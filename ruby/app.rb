@@ -50,10 +50,16 @@ class Ishocon1::WebApp < Sinatra::Base
       @@redis.flushdb
 
       $product_comments = {}
+      $products = {}
+
       product_comments_query = <<SQL
 SELECT product_id, users.name as user_name, content, created_at
 FROM comments
 INNER JOIN users on comments.user_id = users.id
+SQL
+      products_query = <<SQL
+SELECT *
+FROM products
 SQL
       db.xquery(product_comments_query).each do |comment|
         comment = {
@@ -64,6 +70,13 @@ SQL
         }
         add_product_comment(comment)
       end
+      db.xquery(products_query).each do |product|
+        add_product_comment(product)
+      end
+    end
+
+    def add_product(product)
+      $products[product[:id]] = product
     end
 
     def add_product_comment(comment)
@@ -185,7 +198,8 @@ SQL
   end
 
   get '/products/:product_id' do
-    product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
+    # product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
+    product = $products[:product_id]
     key = "product:comments:#{product[:id]}"
 
     if @@redis.exists(key)
