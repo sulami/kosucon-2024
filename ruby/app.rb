@@ -218,7 +218,7 @@ SQL
 
   get '/products/:product_id' do
     # product = db.xquery('SELECT * FROM products WHERE id = ?', params[:product_id]).first
-    product = $products[params[:product_id]]
+    product = $products[params[:product_id].to_i]
     key = "product:comments:#{product[:id]}"
 
     if @@redis.exists(key)
