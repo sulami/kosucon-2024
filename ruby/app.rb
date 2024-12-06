@@ -44,24 +44,25 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def setup_cache
-      $product_comments = Hash.new { |h, k| h[k] = [] }
-      # Preload all comments with user data
-      db.xquery(<<~SQL).each do |row|
-        SELECT c.product_id, c.user_id, u.name as user_name, c.content, c.created_at
-        FROM comments c
-        INNER JOIN users u ON c.user_id = u.id
-      SQL
-        $product_comments[row[:product_id]] << {
-          user_id: row[:user_id],
-          user_name: row[:user_name],
-          content: row[:content],
-          created_at: row[:created_at]
+      $product_comments = {}
+      db.xquery('SELECT * FROM comments').each do |comment|
+        comment = {
+          product_id: comment[:product_id],
+          user_id: comment[:user_id],
+          content: comment[:content],
+          time_now_db: comment[:time_now_db],
         }
+        add_product_comment(comment)
       end
+    end
 
-      # Sort comments in descending order by created_at for each product
-      $product_comments.each_value do |comments|
-        comments.sort_by! { |c| c[:created_at] }.reverse!
+    def add_product_comment(comment)
+      if $product_comments.has_key?(comment[:product_id])
+        $product_comments.fetch(comment[:product_id]) << comment
+        # Re-sort after insertion
+        $product_comments[product_id].sort_by! { |c| c[:created_at] }.reverse!
+      else
+        $product_comments[comment[:product_id]] = [comment]
       end
     end
 
@@ -100,17 +101,7 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def create_comment(product_id, user_id, content)
-      db.xquery('INSERT INTO comments (product_id, user_id, content, created_at) VALUES (?, ?, ?, ?)',
-        product_id, user_id, content, time_now_db)
-      # Update our cache
-      $product_comments[product_id] << {
-        user_id: user_id,
-        user_name: current_user[:name],
-        content: content,
-        created_at: time_now_db
-      }
-      # Re-sort after insertion
-      $product_comments[product_id].sort_by! { |c| c[:created_at] }.reverse!
+      add_product_comment({product_id:, user_id:, content:, time_now_db:})
     end
   end
 
