@@ -116,8 +116,8 @@ SQL
         product_id, user_id, time_now_db)
     
       # Update Redis cache
-      key = "user:#{user_id}:purchases"
-      @@redis.sadd(key, product_id.to_s)
+      @@redis.sadd("user:#{user_id}:purchases", product_id.to_s)
+      @@redis.del("user:#{user_id}:total_pay")
     end
     
     def initialize_user_purchases(user_id)
@@ -182,19 +182,38 @@ SQL
   end
 
   get '/users/:user_id' do
-    products_query = <<SQL
-SELECT p.id, p.name, p.description, p.image_path, p.price, h.created_at
-FROM histories as h
-LEFT OUTER JOIN products as p
-ON h.product_id = p.id
-WHERE h.user_id = ?
-ORDER BY h.id DESC
+    page = @@redis.get("user_page:#{params[:user_id]}")
+    unless page
+      user = db.xquery('select * from users where id = ?', params[:user_id]).first
+      products_query = <<SQL
+select products.id, products.name, LEFT(products.description, 70) as description, products.image_path, products.price, histories.created_at
+from histories
+left outer join products
+on histories.product_id = products.id
+where histories.user_id = ?
+order by histories.id desc
+limit 30
 SQL
-    products = db.xquery(products_query, params[:user_id])
-    total_pay = products.reduce(0) { |sum, product| sum + product[:price] }
+      products = db.xquery(products_query, params[:user_id]).to_a
+      total_pay = @@redis.get("user:#{params[:user_id]}:total_pay")
+      unless total_pay
+        total_pay_query = <<SQL
+select SUM(p.price) as total_pay
+from histories
+left outer join products
+on histories.product_id = products.id
+where histories.user_id = ?
+SQL
+        total_pay = db.xquery(total_pay_query).first[:total_pay]
+        @@redis.set("user:#{user[:id]}:total_pay", total_pay)
+      end
 
-    user = db.xquery('SELECT * FROM users WHERE id = ?', params[:user_id]).first
-    erb :mypage, locals: { products: products, user: user, total_pay: total_pay }
+      page = { products: products, user: user, total_pay: total_pay }
+      @@redis.set("user_page:#{params[:user_id]}", Marshal.dump(page))
+    else
+      page = Marshal.load(cache)
+    end
+    erb :mypage, locals: page
   end
 
   get '/products/:product_id' do
