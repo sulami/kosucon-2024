@@ -198,7 +198,7 @@ SQL
       total_pay = @@redis.get("user:#{params[:user_id]}:total_pay")
       unless total_pay
         total_pay_query = <<SQL
-select SUM(p.price) as total_pay
+select SUM(products.price) as total_pay
 from histories
 left outer join products
 on histories.product_id = products.id
