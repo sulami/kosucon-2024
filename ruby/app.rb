@@ -166,19 +166,26 @@ SQL
     session.clear
     redirect '/login'
   end
-
   get '/' do
     page = (params[:page] || '0').to_i
     start = 10000 - ((page + 1) * 50) + 1
     last = 10000 - (page * 50)
-    product_query = <<SQL
-select id, name, LEFT(description, 70) as description, image_path, price, created_at
-from products
-where id >= #{start} and id <= #{last}
-order by ID desc
-SQL
-    products = db.xquery(product_query)
-    erb :index, locals: { products:, comments_by_product: $product_comments }
+
+    products = {}
+    for id in (last).downto(start) {
+      product = $products[id]
+      product.description = product.description.slice(0, 70)
+      products << product
+    }
+#    product_query = <<SQL
+#select id, name, LEFT(description, 70) as description, image_path, price, created_at
+#from products
+#where id >= #{start} and id <= #{last}
+#order by ID desc
+#SQL
+#    products = db.xquery(product_query)
+
+      erb :index, locals: { products:, comments_by_product: $product_comments }
   end
 
   get '/users/:user_id' do
