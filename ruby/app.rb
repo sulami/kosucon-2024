@@ -141,7 +141,9 @@ SQL
 
   get '/' do
     page = (params[:page] || '0').to_i
-    products = db.xquery("SELECT * FROM products ORDER BY id DESC LIMIT 50 OFFSET #{page * 50}")
+    start = 10000 - ((page + 1) * 50) + 1
+    last = 10000 - (page * 50)
+    products = db.xquery("SELECT * FROM products where id >= #{start} and id <= #{last} ORDER BY id DESC")
     erb :index, locals: { products: products, comments_by_product: $product_comments }
   end
 
