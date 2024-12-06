@@ -108,7 +108,18 @@ SQL
     end
 
     def update_last_login(user_id)
-      db.xquery('UPDATE users SET last_login = ? WHERE id = ?', time_now_db, user_id)
+      redis_key = "user:#{user_id}:last_login"
+      current_time = Time.now.utc
+    
+      @@redis.set(redis_key, current_time)
+    
+      sync_key = "user:#{user_id}:last_sync"
+      last_sync_time = @@redis.get(sync_key)&.to_i
+    
+      if last_sync_time.nil? || (Time.now.to_i - last_sync_time > 300)
+        db.xquery('UPDATE users SET last_login = ? WHERE id = ?', current_time, user_id)
+        @@redis.set(sync_key, Time.now.to_i)
+      end
     end
 
     def buy_product(product_id, user_id)
