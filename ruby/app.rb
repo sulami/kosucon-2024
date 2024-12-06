@@ -211,7 +211,7 @@ SQL
       page = { products: products, user: user, total_pay: total_pay }
       @@redis.set("user_page:#{params[:user_id]}", Marshal.dump(page))
     else
-      page = Marshal.load(cache)
+      page = Marshal.load(page)
     end
     erb :mypage, locals: page
   end
