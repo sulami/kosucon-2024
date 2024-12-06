@@ -47,6 +47,8 @@ class Ishocon1::WebApp < Sinatra::Base
     end
 
     def setup_cache
+      @@redis.flushdb
+
       $product_comments = {}
       product_comments_query = <<SQL
 SELECT product_id, users.name as user_name, content, created_at
