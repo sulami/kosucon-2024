@@ -99,13 +99,26 @@ SQL
     def buy_product(product_id, user_id)
       db.xquery('INSERT INTO histories (product_id, user_id, created_at) VALUES (?, ?, ?)',
         product_id, user_id, time_now_db)
+    
+      # Update Redis cache
+      key = "user:#{user_id}:purchases"
+      @@redis.sadd(key, product_id.to_s)
+    end
+    
+    def initialize_user_purchases(user_id)
+      key = "user:#{user_id}:purchases"
+    
+      # Fetch purchase history from the database
+      purchases = db.xquery('SELECT product_id FROM histories WHERE user_id = ?', user_id).map { |row| row[:product_id] }
+      @@redis.sadd(key, purchases.map(&:to_s)) unless purchases.empty?
     end
 
     def already_bought?(product_id)
       return false unless current_user
-      count = db.xquery('SELECT count(*) as count FROM histories WHERE product_id = ? AND user_id = ?',
-                        product_id, current_user[:id]).first[:count]
-      count > 0
+      key = "user:#{current_user[:id]}:purchases"
+    
+      initialize_user_purchases(current_user[:id]) unless @@redis.exists(key) # Existence check here
+      @@redis.sismember(key, product_id.to_s)
     end
 
     def create_comment(product_id, user, content)
