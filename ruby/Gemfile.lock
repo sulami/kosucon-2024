@@ -2,6 +2,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.2.0)
+    connection_pool (2.4.1)
     erubis (2.7.0)
     foreman (0.88.1)
     kgio (2.11.4)
@@ -17,6 +18,10 @@ GEM
     rack-session (2.0.0)
       rack (>= 3.0.0)
     raindrops (0.20.1)
+    redis (5.3.0)
+      redis-client (>= 0.22.0)
+    redis-client (0.22.2)
+      connection_pool
     ruby2_keywords (0.0.5)
     sinatra (4.0.0)
       mustermann (~> 3.0)
@@ -37,6 +42,7 @@ DEPENDENCIES
   foreman
   mysql2 (= 0.5.6)
   mysql2-cs-bind
+  redis
   sinatra
   unicorn
 
