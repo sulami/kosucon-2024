@@ -189,7 +189,7 @@ SQL
 
   post '/comments/:product_id' do
     authenticated!
-    create_comment(params[:product_id], current_user[:name], params[:content])
+    create_comment(params[:product_id], current_user[:id], params[:content])
     redirect "/users/#{current_user[:id]}"
   end
 
