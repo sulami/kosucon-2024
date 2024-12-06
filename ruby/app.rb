@@ -71,7 +71,7 @@ SQL
         add_product_comment(comment)
       end
       db.xquery(products_query).each do |product|
-        add_product_comment(product)
+        add_product(product)
       end
     end
 
