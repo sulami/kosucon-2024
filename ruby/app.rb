@@ -158,8 +158,14 @@ SQL
     page = (params[:page] || '0').to_i
     start = 10000 - ((page + 1) * 50) + 1
     last = 10000 - (page * 50)
-    products = db.xquery("SELECT * FROM products where id >= #{start} and id <= #{last} ORDER BY id DESC")
-    erb :index, locals: { products: products, comments_by_product: $product_comments }
+    product_query = <<SQL
+select id, name, LEFT(description, 70) as description, image_path, price, created_at
+from products
+where id >= #{start} and id <= #{last}
+order by ID desc
+SQL
+    products = db.xquery(product_query)
+    erb :index, locals: { products:, comments_by_product: $product_comments }
   end
 
   get '/users/:user_id' do
@@ -172,7 +178,6 @@ WHERE h.user_id = ?
 ORDER BY h.id DESC
 SQL
     products = db.xquery(products_query, params[:user_id])
-
     total_pay = products.reduce(0) { |sum, product| sum + product[:price] }
 
     user = db.xquery('SELECT * FROM users WHERE id = ?', params[:user_id]).first
