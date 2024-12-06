@@ -21,7 +21,7 @@
             <h4><%= comments.length %>件のレビュー</h4>
             <ul>
               <% comments[..4].each do |comment| %>
-                <li><%= comment[:content].size > 25 ? "#{comment[:content][0..24]}…" : comment[:content] %> by <%= comment[:name] %></li>
+                <li><%= comment[:content].size > 25 ? "#{comment[:content][0..24]}…" : comment[:content] %> by <%= comment[:user_name] %></li>
               <% end %>
             </ul>
           </div>
