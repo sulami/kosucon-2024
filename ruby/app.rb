@@ -166,6 +166,7 @@ SQL
     session.clear
     redirect '/login'
   end
+
   get '/' do
     page = (params[:page] || '0').to_i
     start = 10000 - ((page + 1) * 50) + 1
