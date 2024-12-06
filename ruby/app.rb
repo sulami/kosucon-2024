@@ -204,7 +204,7 @@ left outer join products
 on histories.product_id = products.id
 where histories.user_id = ?
 SQL
-        total_pay = db.xquery(total_pay_query).first[:total_pay]
+        total_pay = db.xquery(total_pay_query, params[:user_id]).first[:total_pay]
         @@redis.set("user:#{user[:id]}:total_pay", total_pay)
       end
 
