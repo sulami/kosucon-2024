@@ -51,7 +51,7 @@ class Ishocon1::WebApp < Sinatra::Base
       product_comments_query = <<SQL
 SELECT product_id, users.name as user_name, content, created_at
 FROM comments
-LEFT JOIN users on comments.user_id = users.id
+INNER JOIN users on comments.user_id = users.id
 SQL
       db.xquery(product_comments_query).each do |comment|
         comment = {
