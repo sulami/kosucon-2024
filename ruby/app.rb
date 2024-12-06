@@ -55,7 +55,7 @@ INNER JOIN users on comments.user_id = users.id
 SQL
       db.xquery(product_comments_query).each do |comment|
         comment = {
-          product_id: comment[:product_id],
+          product_id: comment[:product_id].to_s,
           user_name: comment[:user_name],
           content: comment[:content],
           created_at: comment[:created_at],
